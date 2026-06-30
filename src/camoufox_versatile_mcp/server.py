@@ -25,3 +25,4 @@ from .tools import verification    # noqa: E402, F401
 from .tools import trace           # noqa: E402, F401
 from .tools import captcha        # noqa: E402, F401
 from .tools import vmp_pipeline  # noqa: E402, F401
+from .tools import js_engine_trace_mcp  # noqa: E402, F401

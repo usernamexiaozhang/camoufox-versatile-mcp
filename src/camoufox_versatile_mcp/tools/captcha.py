@@ -19,6 +19,9 @@ import importlib
 from typing import Any, Literal
 
 from ..server import mcp, browser_manager
+from camoufox_versatile_mcp.constants import (
+    CAPTCHA_TURNSTILE_TIMEOUT_MS, CAPTCHA_INTERSTITIAL_TIMEOUT_MS, CAPTCHA_WAIT_LOAD_MS,
+)
 
 CaptchaType = Literal["cloudflare"]
 ChallengeType = Literal["interstitial", "turnstile", "auto"]
@@ -109,7 +112,7 @@ async def _wait_until_challenge_ready(page, captcha_type: CaptchaType, challenge
             await page.wait_for_selector(
                 'input[name="cf-turnstile-response"], '
                 'script[src*="challenges.cloudflare.com/turnstile/v0"]',
-                timeout=15000,
+                timeout=CAPTCHA_TURNSTILE_TIMEOUT_MS,
             )
         except Exception:
             pass
@@ -119,7 +122,7 @@ async def _wait_until_challenge_ready(page, captcha_type: CaptchaType, challenge
         try:
             await page.wait_for_selector(
                 'script[src*="/cdn-cgi/challenge-platform/"]',
-                timeout=10000,
+                timeout=CAPTCHA_INTERSTITIAL_TIMEOUT_MS,
             )
         except Exception:
             pass
@@ -232,7 +235,7 @@ async def auto_solve_captcha(
 
         if verify:
             try:
-                await page.wait_for_load_state("domcontentloaded", timeout=15000)
+                await page.wait_for_load_state("domcontentloaded", timeout=CAPTCHA_WAIT_LOAD_MS)
             except Exception:
                 pass
             still_blocked = await _page_still_has_challenge(page, captcha_type)

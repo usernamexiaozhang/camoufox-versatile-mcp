@@ -8,6 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
+from camoufox_versatile_mcp.constants import PROPERTY_TRACE_KEEP_DAYS, MAX_EVENTS_PER_SESSION
+
 CACHE_DIR = Path.home() / ".cache" / "camoufox-reverse"
 CONTROL_DIR = CACHE_DIR / "control"
 TRACES_DIR = CACHE_DIR / "traces"
@@ -24,7 +26,7 @@ def control_path_for(pid: int) -> Path:
 
 def build_property_trace_config() -> dict:
     ensure_dirs()
-    return {"enabled": True, "logDir": str(CACHE_DIR), "objects": [], "maxEventsPerSession": 100000}
+    return {"enabled": True, "logDir": str(CACHE_DIR), "objects": [], "maxEventsPerSession": MAX_EVENTS_PER_SESSION}
 
 
 def write_control(pid: int, cmd: str) -> bool:

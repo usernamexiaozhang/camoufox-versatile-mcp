@@ -7,8 +7,12 @@ import json as _json
 import os
 
 from ..server import mcp, browser_manager
+from camoufox_versatile_mcp.constants import (
+    NAV_TIMEOUT_MS, CAPTCHA_TURNSTILE_TIMEOUT_MS, CAPTCHA_INTERSTITIAL_TIMEOUT_MS,
+    CAPTCHA_WAIT_LOAD_MS, PRE_INJECT_REGISTER_TIMEOUT,
+)
 
-_PRE_INJECT_REGISTER_TIMEOUT = 10.0
+_PRE_INJECT_REGISTER_TIMEOUT = PRE_INJECT_REGISTER_TIMEOUT
 
 
 @mcp.tool()
@@ -22,6 +26,7 @@ async def launch_browser(
     block_images: bool = False,
     block_webrtc: bool = False,
     enable_trace: bool = False,
+    remote_debugging_port: int = 0,
     i_know_what_im_doing: bool = True,
     disable_coop: bool = True,
     force_scope_access: bool = True,
@@ -33,6 +38,9 @@ async def launch_browser(
     without them, Camoufox runs in a sandbox iframe and CF hands out a hard
     challenge with no solvable iframe. These match what the project's test.py
     smoke test uses.
+
+    Use ``remote_debugging_port`` for CDP-based tracing (e.g. DevTools ExecutionTracer).
+    Set to e.g. 9222 to enable remote debugging, then use js_engine_trace with action="start_cdp".
     """
     try:
         config = {
@@ -40,6 +48,7 @@ async def launch_browser(
             "humanize": humanize, "geoip": geoip,
             "block_images": block_images, "block_webrtc": block_webrtc,
             "enable_trace": enable_trace,
+            "remote_debugging_port": remote_debugging_port,
             "i_know_what_im_doing": i_know_what_im_doing,
             "disable_coop": disable_coop,
             "force_scope_access": force_scope_access,
@@ -144,7 +153,7 @@ async def navigate(
 
         navigation_timed_out = False
         try:
-            resp = await page.goto(url, wait_until=wait_until, timeout=30000)
+            resp = await page.goto(url, wait_until=wait_until, timeout=NAV_TIMEOUT_MS)
         except Exception as e:
             msg = str(e).lower()
             if "timeout" in msg or "exceeded" in msg or "waiting" in msg:

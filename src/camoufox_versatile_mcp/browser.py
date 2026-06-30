@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import json as _json
+import logging
 import os as _os
 import platform
 import time
@@ -9,6 +11,8 @@ from collections import deque
 from typing import Any
 
 from playwright.async_api import Page, BrowserContext
+
+_logger = logging.getLogger(__name__)
 
 MAX_LOG_SIZE = 2000
 MAX_BODY_SIZE = 200_000
@@ -29,6 +33,23 @@ def detect_system_locale() -> str:
         if val and val not in ("C", "POSIX"):
             return val.split(".")[0].replace("_", "-")
     return "en-US"
+
+
+def _build_from_options(kwargs: dict[str, Any], headless: bool, env_overrides: dict[str, str] | None = None) -> dict[str, Any]:
+    """Build a merged from_options dict for camoufox launch.
+
+    Applies env_overrides on top of whatever launch_options() produces from
+    the current kwargs.  If launch_options() already set env vars, they are
+    preserved; env_overrides are layered on top.
+    """
+    from camoufox.utils import launch_options as _cfx_launch_options
+    filtered = {k: v for k, v in kwargs.items() if k != "headless"}
+    opts = _cfx_launch_options(headless=headless, **filtered)
+    env = dict(opts.get("env", {}))
+    if env_overrides:
+        env.update(env_overrides)
+    opts["env"] = env
+    return opts
 
 
 class BrowserManager:
@@ -59,7 +80,7 @@ class BrowserManager:
                 try:
                     pages_info[name] = p.url
                 except Exception:
-                    pages_info[name] = "unknown"
+                    _logger.debug("Could not read page URL for status: %s", e)
             return {
                 "status": "already_running", "active_page": self.active_page_name,
                 "pages": pages_info, "contexts": list(self.contexts.keys()),
@@ -70,13 +91,13 @@ class BrowserManager:
         cfg = {**self.default_config, **(config or {})}
         kwargs: dict[str, Any] = {}
 
+        # --- Basic options -------------------------------------------------
         if cfg.get("proxy"):
             kwargs["proxy"] = cfg["proxy"]
 
         os_type = cfg.get("os", "auto")
         host_os = detect_host_os()
-        if os_type == "auto":
-            os_type = host_os
+        os_type = os_type if os_type != "auto" else host_os
         kwargs["os"] = os_type
 
         if cfg.get("humanize"):
@@ -106,11 +127,22 @@ class BrowserManager:
         headless = cfg.get("headless", False)
         kwargs["headless"] = headless
 
-        enable_trace = cfg.get("enable_trace", False)
+        # --- from_options: accumulate env patches from all features -----
+        env_patches: dict[str, str] = {}
 
-        if enable_trace:
+        # Feature: custom trace_env overrides
+        for k, v in (cfg.get("trace_env") or {}).items():
+            env_patches[k] = str(v)
+
+        # Feature: remote debugging port
+        remote_debugging_port = cfg.get("remote_debugging_port", 0)
+        if remote_debugging_port:
+            env_patches["MOZ_REMOTE_DEBUGGING_PORT"] = str(remote_debugging_port)
+            kwargs["remote_debugging_port"] = remote_debugging_port
+
+        # Feature: property trace (enable_trace)
+        if cfg.get("enable_trace"):
             from .property_trace import build_property_trace_config, ensure_dirs, cleanup_old_traces, cleanup_traces, CACHE_DIR
-            import json as _json
             ensure_dirs()
             cleanup_old_traces(keep_days=7)
             cleanup_traces()
@@ -119,33 +151,29 @@ class BrowserManager:
                 for f in values_dir.glob("*"):
                     try:
                         f.unlink()
-                    except:
+                    except Exception:
                         pass
             trace_config = build_property_trace_config()
 
-            from camoufox.utils import launch_options as _cfx_launch_options
-            from functools import partial
-            from_options = _cfx_launch_options(headless=headless, **{
-                k: v for k, v in kwargs.items() if k != "headless"
-            })
-            env = from_options.get("env", {})
-            merged = False
-            for key in sorted(env.keys()):
+            # Merge into existing CAMOU_CONFIG if present
+            merged_config: dict[str, Any] = {"propertyTrace": trace_config}
+            for key in sorted(env_patches.keys()):
                 if key.startswith("CAMOU_CONFIG"):
                     try:
-                        existing = _json.loads(env[key])
-                        existing["propertyTrace"] = trace_config
-                        env[key] = _json.dumps(existing)
-                        merged = True
+                        merged_config = _json.loads(env_patches[key])
+                        merged_config["propertyTrace"] = trace_config
+                        del env_patches[key]
                         break
                     except (ValueError, TypeError):
                         pass
-            if not merged:
-                env["CAMOU_CONFIG"] = _json.dumps({"propertyTrace": trace_config})
-            env["MOZ_DISABLE_CONTENT_SANDBOX"] = "1"
-            from_options["env"] = env
-            kwargs["from_options"] = from_options
+            env_patches["CAMOU_CONFIG"] = _json.dumps(merged_config)
+            env_patches["MOZ_DISABLE_CONTENT_SANDBOX"] = "1"
 
+        # Apply accumulated env patches
+        if env_patches:
+            kwargs["from_options"] = _build_from_options(kwargs, headless, env_patches)
+
+        # --- Launch --------------------------------------------------------
         self._cm = AsyncCamoufox(**kwargs)
         self.browser = await self._cm.__aenter__()
 
@@ -251,7 +279,8 @@ class BrowserManager:
                 entry["response_body_total_size"] = len(body_text)
             else:
                 entry["response_body"] = body_text
-        except Exception:
+        except Exception as e:
+            _logger.debug("Failed to fetch response body: %s", e)
             entry["response_body"] = None
 
     def _on_response_for_nav(self, resp) -> None:
@@ -263,8 +292,8 @@ class BrowserManager:
             })
             if len(self._nav_responses) > 100:
                 self._nav_responses = self._nav_responses[-100:]
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.debug("Failed to append nav response: %s", e)
 
     def reset_nav_responses(self) -> None:
         self._nav_responses = []
