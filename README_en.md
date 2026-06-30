@@ -12,7 +12,29 @@ Forked from [camoufox-reverse-mcp](https://github.com/WhiteNightShadow/camoufox-
 
 ## Installation
 
+### Option 1: AI Installer (Recommended)
+
+Just paste this into your AI coding assistant (Cursor / Claude Code / Windsurf / Coze, etc.):
+
+```
+Install this MCP tool for me: camoufox-versatile-mcp
+Project URL: https://github.com/usernamexiaozhang/camoufox-versatile-mcp
+```
+
+The AI will automatically:
+
+1. `git clone` or install the project
+2. Read `pyproject.toml` to resolve dependencies
+3. Configure Cursor's `mcpServers` (auto-write `settings.json`)
+4. Start the MCP Server and verify the connection
+
+> **Why recommend this?** The AI knows your OS, Python environment, and Cursor version — it handles Windows/macOS/Linux path differences, picks the right install command, and confirms success when done.
+
+### Option 2: Manual Install
+
 ```bash
+git clone https://github.com/usernamexiaozhang/camoufox-versatile-mcp
+cd camoufox-versatile-mcp
 pip install -e .
 ```
 

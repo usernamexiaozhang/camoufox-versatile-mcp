@@ -14,7 +14,29 @@ Fork 自 [camoufox-reverse-mcp](https://github.com/WhiteNightShadow/camoufox-rev
 
 ### 安装
 
+#### 方式一：AI 对话框直接安装（推荐）
+
+在你常用的 AI 编码工具（Cursor / Claude Code / Windsurf / Coze 等）的对话框中输入：
+
+```
+帮我安装下这个 MCP 工具：camoufox-versatile-mcp
+项目地址：https://github.com/usernamexiaozhang/camoufox-versatile-mcp
+```
+
+AI 会自动完成以下全部步骤：
+
+1. `git clone` 或 `pip install` 克隆安装项目
+2. 读取 `pyproject.toml` 确认依赖
+3. 配置 Cursor 的 `mcpServers`（自动写入 `settings.json`）
+4. 启动 MCP Server 并验证连接
+
+> **为什么推荐这种方式？** AI 了解你的操作系统、Python 环境、Cursor 版本，它可以处理 Windows/macOS/Linux 的路径差异，自动选择合适的安装命令，并在安装完成后告诉你是否成功。
+
+#### 方式二：手动安装
+
 ```bash
+git clone https://github.com/usernamexiaozhang/camoufox-versatile-mcp
+cd camoufox-versatile-mcp
 pip install -e .
 ```
 
@@ -138,6 +160,16 @@ pip install -e .
 
 ---
 
+### JS 引擎 Trace + HTTP 包 Trace（3 个）🆕
+|| 工具 | 说明 |
+||------|------|
+|| `js_engine_trace` | JS 引擎 tracing（三层独立方案，零编译，零 patch） |
+|| `http_packet_trace` | HTTP 包 trace（捕获完整请求/响应 + 发起者 JS 调用栈） |
+|| `trace_js_and_http` | 组合模式：同时开启 JS trace + HTTP trace，持续 N 秒后自动停止 |
+
+> 基于 RuyiTrace 的 HttpPacketTrace 思路，用 Playwright 路由拦截实现，无需 RuyiTrace 的 C++ 插桩。
+
+
 ## Captcha 挑战自动通过使用示例
 
 ### 方式一：导航时自动过挑战（推荐）
@@ -247,6 +279,67 @@ if not result["diff"]["match"]:
 
 ---
 
+## JS 引擎 Trace + HTTP 包 Trace 使用示例
+
+### 方式一：组合模式（最简单）
+
+```python
+# 同时开启 JS trace + HTTP trace，持续 5 秒后自动停止
+result = trace_js_and_http(
+    duration=5,
+    trace_js=True,
+    trace_http=True,
+    trace_values=True,           # 捕获函数参数值
+    trace_dom_events=True,       # 捕获 DOM 事件
+    capture_http_body=False,    # 不捕获响应体（省空间）
+)
+# result["js_trace_summary"]   → JS 函数调用热图
+# result["http_trace"]         → HTTP 请求摘要
+```
+
+### 方式二：分步控制
+
+```python
+# Layer 1: 安装 JS 源码级 tracer（无需特殊浏览器）
+js_engine_trace(action="install_js", max_depth=20, trace_values=True)
+
+# 导航到目标页面，触发 JS
+navigate("https://target-site.com/api/sign")
+
+# 读取 trace 结果
+result = js_engine_trace(action="read", session_id="abc12345")
+# → hot_functions, depth_histogram, sample_events
+
+# Layer 2: HTTP 包 trace
+http_packet_trace(action="start", capture_body=True)
+
+# 触发目标请求
+await page.evaluate("fetch('/api/sign', {method:'POST', body: JSON.stringify({a:1})})")
+
+# 读取 HTTP trace
+http_result = http_packet_trace(action="read")
+# → api_requests, javascript_requests, slow_requests
+```
+
+### 方式三：CDP DevTools 原生 tracer（需要 remote_debugging_port）
+
+```python
+# 启动带 remote debugging 的浏览器
+launch_browser(remote_debugging_port=9222)
+
+# 启动 CDP 原生 tracer（Firefox 内置的 JS ExecutionTracer）
+js_engine_trace(
+    action="start_cdp",
+    trace_values=True,
+    trace_dom_events=True,
+    trace_dom_mutations=False,
+    max_records=50000,
+    cdp_port=9222,
+)
+```
+
+---
+
 ## 技术架构
 
 ```
@@ -284,7 +377,8 @@ if not result["diff"]["match"]:
 | WASM 反汇编 | 无 | 有 |
 | Worker / WS 流量捕获 | 无 | 有 |
 | 自动 diff + 缺失属性建议 | 无 | 有 |
-
+| JS 引擎 Trace（三层方案） | 无 | **新建（3个工具）** |
+| HTTP 包 Trace（Playwright 拦截） | 无 | 有 |
 ---
 
 ## 许可证
