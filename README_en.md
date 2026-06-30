@@ -292,22 +292,6 @@ if not result["diff"]["match"]:
 
 ---
 
-## Comparison with camoufox-reverse-mcp
-
-| Feature | camoufox-reverse-mcp | camoufox-versatile-mcp |
-|---------|---------------------|------------------------|
-| Captcha auto-solve | Requires separate `camoufox-captcha` | **Built-in, no extra setup** |
-| navigate auto-solve | N/A | `auto_solve_challenge=True` |
-| detect_captcha tool | N/A | Yes |
-| auto_solve_captcha tool | External dependency | Yes |
-| JSVMP offline replay pipeline | N/A | **New (8 tools)** |
-| VMP detection + tap tracing | N/A | Yes |
-| WASM disassembly | N/A | Yes |
-| Worker / WS traffic capture | N/A | Yes |
-| Auto-diff + missing prop suggestion | N/A | Yes |
-
----
-
 ## License
 
 MIT

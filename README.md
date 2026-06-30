@@ -364,23 +364,6 @@ js_engine_trace(
 
 ---
 
-## 与原版 camoufox-reverse-mcp 的区别
-
-| 特性 | camoufox-reverse-mcp | camoufox-versatile-mcp |
-|------|---------------------|------------------------|
-| Captcha 挑战自动通过 | 需要单独安装 `camoufox-captcha` | **内置，无需额外配置** |
-| navigate 自动过挑战 | 无 | `auto_solve_challenge=True` |
-| detect_captcha 工具 | 无 | 有 |
-| auto_solve_captcha 工具 | 依赖外部 | 有 |
-| JSVMP 离线重放管线 | 无 | **全新（8 个工具）** |
-| VMP 检测 + Tap 追踪 | 无 | 有 |
-| WASM 反汇编 | 无 | 有 |
-| Worker / WS 流量捕获 | 无 | 有 |
-| 自动 diff + 缺失属性建议 | 无 | 有 |
-| JS 引擎 Trace（三层方案） | 无 | **新建（3个工具）** |
-| HTTP 包 Trace（Playwright 拦截） | 无 | 有 |
----
-
 ## 许可证
 
 MIT
